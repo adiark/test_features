@@ -1,0 +1,73 @@
+/**
+  * vee-validate v4.7.4
+  * (c) 2023 Abdelrahman Awad
+  * @license MIT
+  */
+(function (global, factory) {
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
+  typeof define === 'function' && define.amd ? define(['exports'], factory) :
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.VeeValidateZod = {}));
+})(this, (function (exports) { 'use strict';
+
+  function isIndex(value) {
+      return Number(value) >= 0;
+  }
+
+  /**
+   * Transforms a Zod's base type schema to yup's base type schema
+   */
+  function toFieldValidator(zodSchema) {
+      return {
+          async validate(value) {
+              const result = await zodSchema.safeParseAsync(value);
+              if (result.success) {
+                  return true;
+              }
+              const error = new Error(result.error.message);
+              error.name = 'ValidationError';
+              error.errors = result.error.formErrors.formErrors;
+              throw error;
+          },
+      };
+  }
+  /**
+   * Transforms a Zod object schema to Yup's schema
+   */
+  function toFormValidator(zodSchema) {
+      return {
+          async validate(value) {
+              const result = await zodSchema.safeParseAsync(value);
+              if (result.success) {
+                  return true;
+              }
+              const errors = result.error.issues.map(issue => {
+                  return { path: joinPath(issue.path), errors: [issue.message] };
+              });
+              const error = new Error(result.error.message);
+              error.name = 'ValidationError';
+              error.inner = errors;
+              throw error;
+          },
+      };
+  }
+  /**
+   * Constructs a path with brackets to be compatible with vee-validate path syntax
+   */
+  function joinPath(path) {
+      let fullPath = String(path[0]);
+      for (let i = 1; i < path.length; i++) {
+          if (isIndex(path[i])) {
+              fullPath += `[${path[i]}]`;
+              continue;
+          }
+          fullPath += `.${path[i]}`;
+      }
+      return fullPath;
+  }
+
+  exports.toFieldValidator = toFieldValidator;
+  exports.toFormValidator = toFormValidator;
+
+  Object.defineProperty(exports, '__esModule', { value: true });
+
+}));
